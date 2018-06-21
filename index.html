@@ -10,8 +10,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.38.0/codemirror.min.js"></script>
 <script src="mode/javascript/javascript.js"></script>
 <script src="mode/velocity/velocity.js"></script>
+<script src="mode/python/python.js"></script>
 <script src="addon/hint/show-hint.js"></script> 
-<script src="addon/hint/javascript-hint.js"></script>
+<script src="addon/hint/anyword-hint.js"></script> 
+<script src="addon/hint/velocity-hint.js"></script>
+
+<script src="addon/display/autorefresh.js"></script>
+<!--
+<script src="addon/hint/anyword-hint.js"></script>
+-->
 
 <style>
 body {
@@ -60,41 +67,23 @@ $someObject("This plus $something in the middle").method(7567).property
     </textarea>
   
   <script>
-    var comp = [
-      ["here", "hither"],
-      ["asynchronous", "nonsynchronous"],
-      ["completion", "achievement", "conclusion", "culmination", "expirations"],
-      ["hinting", "advive", "broach", "imply"],
-      ["function","action"],
-      ["provide", "add", "bring", "give"],
-      ["synonyms", "equivalents"],
-      ["words", "token"],
-      ["each", "every"],
-    ]
-
-    function synonyms(cm, option) {
-      return new Promise(function(accept) {
-        setTimeout(function() {
-          var cursor = cm.getCursor(), line = cm.getLine(cursor.line)
-          var start = cursor.ch, end = cursor.ch
-          while (start && /\w/.test(line.charAt(start - 1))) --start
-          while (end < line.length && /\w/.test(line.charAt(end))) ++end
-          var word = line.slice(start, end).toLowerCase()
-          for (var i = 0; i < comp.length; i++) if (comp[i].indexOf(word) != -1)
-            return accept({list: comp[i],
-                           from: CodeMirror.Pos(cursor.line, start),
-                           to: CodeMirror.Pos(cursor.line, end)})
-          return accept(null)
-        }, 100)
-      })
-    }
 
     var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
       lineNumbers: true,
       extraKeys: {"Ctrl-Space": "autocomplete"},
       mode: {name: "velocity", globalVars: true},
-      hintOptions : {hint: synonyms}
+      autoRefresh:true
+      //hintOptions : {hint: synonyms}
     });
+
+    // editor.on("keyup", function (cm, event) {
+    //     if (!cm.state.completionActive && /*Enables keyboard navigation in autocomplete list*/
+    //         event.keyCode != 13) {        /*Enter - do not open autocomplete list just after item has been selected in it*/ 
+    //         CodeMirror.commands.autocomplete(cm, null, {completeSingle: false});
+    //     }
+    // });
+  
+
   </script>
 
 </section>
