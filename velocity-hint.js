@@ -11,10 +11,12 @@
 })(function(CodeMirror) {
   "use strict";
 
+  //Apply function f on each element
   function forEach(arr, f) {
     for (var i = 0, e = arr.length; i < e; ++i) f(arr[i]);
   }
 
+  //Checks for occurrence of item, last to first in the array
   function arrayContains(arr, item) {
     if (!Array.prototype.indexOf) {
       var i = arr.length;
@@ -28,14 +30,9 @@
     return arr.indexOf(item) != -1;
   }
 
-  function scriptHint(editor, _keywords, getToken) {
+  function scriptHint(editor, _keywords, getToken, options) {
     // Find the token at the cursor
     var cur = editor.getCursor(), token = getToken(editor, cur), tprop = token;
-    // If it's not a 'word-style' token, ignore the token.
-    // if (!/^[\w$_]*$/.test(token.string)) {
-    //     token = tprop = {start: cur.ch, end: cur.ch, string: "", state: token.state,
-    //                      className: null};
-    // }
 
     if (!context) var context = [];
     context.push(tprop);
@@ -43,7 +40,35 @@
     var completionList = getCompletions(token, context);
     //completionList = completionList.sort(); //sorting the completion list...might not need to do this
 
-    return {list: completionList,
+    //How far to look
+    var WORD = /[\w$]+/, RANGE = 500;
+
+    //Look at nearby words and add them to the list if hey are variables
+    var word = options && options.word || WORD;
+    var range = options && options.range || RANGE;
+    var cur = editor.getCursor(), curLine = editor.getLine(cur.line);
+    var end = cur.ch, start = end;
+    while (start && word.test(curLine.charAt(start - 1))) --start;
+    var curWord = start != end && curLine.slice(start, end);
+
+    var list = completionList, seen = {};
+    var re = new RegExp(word.source, "g");
+    for (var dir = -1; dir <= 1; dir += 2) {
+      var line = cur.line, endLine = Math.min(Math.max(line + dir * range, editor.firstLine()), editor.lastLine()) + dir;
+      for (; line != endLine; line += dir) {
+        var text = editor.getLine(line), m;
+        while (m = re.exec(text)) {
+          if (line == cur.line && m[0] === curWord) continue;
+          if ((!curWord || m[0].lastIndexOf(curWord, 0) == 0) && !Object.prototype.hasOwnProperty.call(seen, m[0])) {
+            seen[m[0]] = true;
+            //make sure we only add nearby variables, not just any string (could also do this by checking token type)
+            if(m[0].length > 0 && m[0].charAt(0) == "$") list.push(m[0]);
+          }
+        }
+      }
+    }
+
+    return {list: list,
             from: CodeMirror.Pos(cur.line, token.start),
             to: CodeMirror.Pos(cur.line, token.end)};
   }
@@ -55,6 +80,7 @@
   };
   CodeMirror.registerHelper("hint", "velocity", velocityHint);
 
+  //Supported velocity strings
   var velocityKeywords = ("#end #else #break #stop #[[ #]] " +
                               "#{end} #{else} #{break} #{stop}").split(" ");
   var velocityFunctions = ("#if #elseif #foreach #set #include #parse #macro #define #evaluate " +
@@ -64,10 +90,12 @@
   function getCompletions(token, context) {
     var found = [], start = token.string;
     function maybeAdd(str) {
+      //See if start is the first character of the string, and add the string if its not already there
       if (str.lastIndexOf(start, 0) == 0 && !arrayContains(found, str)) found.push(str);
     }
 
     function gatherCompletions(_obj) {
+        //try adding the supported string to the suggestion list if theyre valid
         forEach(velocityKeywords, maybeAdd);
         forEach(velocityFunctions, maybeAdd);
         forEach(velocitySpecials, maybeAdd);   
